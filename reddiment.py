@@ -1,5 +1,12 @@
 import argparse
 import requests
+from textblob import TextBlob
+
+is_verbose = False
+
+def verbose_print(string):
+	if is_verbose:
+		print(string)
 
 
 # Reddit expects this user agent string in all requests, so we make a session object
@@ -9,20 +16,20 @@ session.headers.update({'user-agent': 'linux:reddiment:v1.0 (by /u/relativeabsol
 
 
 def analyze_comment(comment):
-	print("Comment author - {}".format(comment['data']['author']))
-	print("Comment body - {}".format(comment['data']['body']))
-
-
-def check_response(response):
-	if response.status_code != requests.codes.ok:
-		response.raise_for_status()
+	verbose_print("Comment author - {}".format(comment['data']['author']))
+	body = comment['data']['body']
+	verbose_print("Comment body - {}".format(body))
+	verbose_print("Comment score - {}".format(comment['data']['score']))
+	blob = TextBlob(body)
+	sentiment = blob.sentiment
+	verbose_print("Comment analysis: polarity = {} and subjectivity = {}".format(sentiment[0], sentiment[1]))
 
 
 def analyze_post_comments(post_data):
-	print("Post title - {}".format(post_data['title']))
-	print("Number of comments - {}".format(post_data['num_comments']))
+	verbose_print("Post title - {}".format(post_data['title']))
+	verbose_print("Number of comments - {}".format(post_data['num_comments']))
 	permalink = post_data["permalink"]
-	print("Permalink - {}".format(permalink))
+	verbose_print("Permalink - {}".format(permalink))
 	url = "https://www.reddit.com{}.json".format(permalink)
 	
 	post_response = session.get(url)
@@ -40,16 +47,19 @@ def analyze_post_comments(post_data):
 if __name__ == "__main__":
 	parser = argparse.ArgumentParser()
 	parser.add_argument('subreddit', help='subreddit to analyze')
+	parser.add_argument('--verbose', help='print info as analysis is being performed.', action='store_true')
 	args_dict = vars(parser.parse_args())
+
+	is_verbose = args_dict['verbose']
 
 	subreddit = args_dict['subreddit']
 	url = 'https://www.reddit.com/r/{}.json'.format(subreddit)
-	print("Collecting posts from {} (url = {})".format(subreddit, url))
+	verbose_print("Collecting posts from {} (url = {})".format(subreddit, url))
 
 	# Request pattern: get request to url, check for error, process response content
 	response = session.get(url)
 	response.raise_for_status()
 	response_json = response.json()
-	print("Number of posts = {}".format(response_json['data']['dist']))
+	verbose_print("Number of posts = {}".format(response_json['data']['dist']))
 	for post in response_json['data']['children']:
 		analyze_post_comments(post['data'])
